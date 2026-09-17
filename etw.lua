@@ -1,9 +1,9 @@
-_G.AutoGrabEat = false
-_G.AutoSell = false
+_G.AutoGrabEat = true
+_G.AutoSell = true
 _G.AutoUpgrade = false
 _G.AutoReward = false
 _G.EatSpeed = 10
-_G.SellSize = 4047000
+_G.SellSize = 4132800
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
