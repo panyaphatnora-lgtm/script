@@ -49,8 +49,8 @@ MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
 MainFrame.BackgroundTransparency = 0.25
-MainFrame.Position = UDim2.new(0.5, -200, 0.5, -250)
-MainFrame.Size = UDim2.new(0, 400, 0, 580)
+MainFrame.Position = UDim2.new(0.5, -200, 0.5, -300)
+MainFrame.Size = UDim2.new(0, 400, 0, 620)
 MainFrame.ClipsDescendants = true
 
 local MainCorner = Instance.new("UICorner")
@@ -111,7 +111,7 @@ ContentContainer.Parent = MainFrame
 ContentContainer.BackgroundTransparency = 1
 ContentContainer.Position = UDim2.new(0, 15, 0, 45)
 ContentContainer.Size = UDim2.new(1, -30, 1, -55)
-ContentContainer.CanvasSize = UDim2.new(0, 0, 0, 850)
+ContentContainer.CanvasSize = UDim2.new(0, 0, 0, 950)
 ContentContainer.ScrollBarThickness = 4
 
 local UIListLayout = Instance.new("UIListLayout")
@@ -157,11 +157,75 @@ local function createTextBox(name, placeholder, defaultValue)
     return Box
 end
 
--- เพิ่มช่องกรอกข้อมูลต่างๆ รวมถึง Slot อาวุธ
+-- ฟังก์ชันสร้าง Toggle Switch สำหรับเปิด-ปิดโหมดเตะ
+local function createToggle(name, defaultState)
+    local Frame = Instance.new("Frame")
+    Frame.Parent = ContentContainer
+    Frame.BackgroundTransparency = 1
+    Frame.Size = UDim2.new(1, 0, 0, 30)
+
+    local Label = Instance.new("TextLabel")
+    Label.Parent = Frame
+    Label.BackgroundTransparency = 1
+    Label.Size = UDim2.new(0.7, 0, 1, 0)
+    Label.Font = Enum.Font.GothamMedium
+    Label.Text = name
+    Label.TextColor3 = Color3.fromRGB(200, 200, 220)
+    Label.TextSize = 12
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local SwitchBtn = Instance.new("TextButton")
+    SwitchBtn.Name = "SwitchButton"
+    SwitchBtn.Parent = Frame
+    SwitchBtn.AnchorPoint = Vector2.new(1, 0.5)
+    SwitchBtn.Position = UDim2.new(1, 0, 0.5, 0)
+    SwitchBtn.Size = UDim2.new(0, 50, 0, 24)
+    SwitchBtn.Font = Enum.Font.GothamBold
+    SwitchBtn.Text = ""
+    SwitchBtn.TextSize = 12
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(1, 0)
+    Corner.Parent = SwitchBtn
+
+    local state = defaultState or false
+    local function updateState()
+        if state then
+            SwitchBtn.BackgroundColor3 = Color3.fromRGB(80, 200, 120)
+            SwitchBtn.Text = "ON (เตะ)"
+            SwitchBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        else
+            SwitchBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+            SwitchBtn.Text = "OFF (แจ้ง)"
+            SwitchBtn.TextColor3 = Color3.fromRGB(150, 150, 170)
+        end
+    end
+    updateState()
+
+    SwitchBtn.MouseButton1Click:Connect(function()
+        state = not state
+        updateState()
+    end)
+
+    -- ฟังก์ชันดึงค่าสถานะปัจจุบันของสวิตช์
+    return {
+        GetValue = function()
+            return state
+        end
+    }
+end
+
+-- สร้าง UI Components
 local MoneyBox = createTextBox("เป้าหมายเงิน (Money) [ปล่อยว่างได้ถ้าไม่ตั้ง]", "เช่น 100000000 (ปล่อยว่างได้)", "")
+local MoneyKickToggle = createToggle("⚡ ตั้งค่า: เปิด=เตะ / ปิด=แจ้งเตือน (เมื่อถึงเป้าหมายเงิน)", true)
+
 local FragmentBox = createTextBox("เป้าหมาย Fragment [ปล่อยว่างได้ถ้าไม่ตั้ง]", "เช่น 300000 (ปล่อยว่างได้)", "")
+local FragKickToggle = createToggle("⚡ ตั้งค่า: เปิด=เตะ / ปิด=แจ้งเตือน (เมื่อถึงเป้าหมาย Fragment)", true)
+
 local WeaponSlotBox = createTextBox("เลือก Slot อาวุธที่ต้องการใช้งาน (เช่น 1, 2, 3)", "ใส่หมายเลข Slot อาวุธ...", "1")
 local MasteryBox = createTextBox("เป้าหมาย Mastery อาวุธ (X) [ปล่อยว่างได้]", "เช่น 600 (ปล่อยว่างได้)", "")
+local MasteryKickToggle = createToggle("⚡ ตั้งค่า: เปิด=เตะ / ปิด=แจ้งเตือน (เมื่ออาวุธถึง Mastery)", true)
+
 local ChannelTokenBox = createTextBox("Line Channel Access Token", "ใส่ Access Token...", "EfJMrAMgy2aPCimKynOUNPplYc70n5JgpMcdNDLvR2v5dC8ChP6LYJIY/IyRIjnOwyfjQ/OHuYRP0r4kVL4IB6cMsuGexCnTjg7yRfMInWUdT2qipNv1k45AfUEwg6zsvTtL5KZNNP+FgHleR8/ILwdB04t89/1O/w1cDnyilFU=")
 local UserIdBox = createTextBox("Line User ID (ขึ้นต้นด้วย U...)", "ใส่ User ID ของคุณ...", "U1c12b681682342ded09e14485acc3fe1")
 
@@ -237,7 +301,6 @@ local function getCurrentWeaponMastery()
     local slotNum = tonumber(WeaponSlotBox.Text)
     local equippedTool = nil
     
-    -- ถ้ามีการระบุ Slot ให้พยายามหยิบ Tool จาก Backpack ตาม Slot หรือเช็คจากตัวละคร
     if slotNum then
         local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
         if backpack then
@@ -253,7 +316,6 @@ local function getCurrentWeaponMastery()
         end
     end
     
-    -- ถ้าไม่เจอใน Backpack ให้เช็คตัวที่ถืออยู่ปัจจุบัน
     if not equippedTool then
         equippedTool = character:FindFirstChildOfClass("Tool")
     end
@@ -396,7 +458,10 @@ end
 -- ตัวแปรการทำงาน
 local isRunning = false
 local startTime = 0
-local hasCompleted = false
+-- ตัวแปรเช็คว่าส่งแจ้งเตือนไปแล้วหรือยัง (ป้องกันไม่ให้ส่งรัวๆ ทุกเฟรม)
+local notifiedMoney = false
+local notifiedFrag = false
+local notifiedMastery = false
 
 -- ปุ่มเปิด/ปิด Animation
 MinimizeBtn.MouseButton1Click:Connect(function()
@@ -413,7 +478,7 @@ ToggleButton.MouseButton1Click:Connect(function()
     ToggleButton.Visible = false
     MainFrame.Visible = true
     local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-    local tween = TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 400, 0, 580), BackgroundTransparency = 0.25})
+    local tween = TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 400, 0, 620), BackgroundTransparency = 0.25})
     tween:Play()
 end)
 
@@ -424,7 +489,10 @@ end)
 -- ปุ่ม Start / Stop
 StartBtn.MouseButton1Click:Connect(function()
     isRunning = not isRunning
-    hasCompleted = false
+    notifiedMoney = false
+    notifiedFrag = false
+    notifiedMastery = false
+    
     if isRunning then
         StartBtn.Text = "หยุดทำงาน (STOP)"
         StartBtn.BackgroundColor3 = Color3.fromRGB(220, 80, 80)
@@ -444,9 +512,9 @@ StartBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ลูปเช็คค่าสถานะและเงื่อนไขเป้าหมาย
+-- ลูปเช็คค่าสถานะและเงื่อนไขเป้าหมายแยกตามสวิตช์
 RunService.RenderStepped:Connect(function()
-    if isRunning and not hasCompleted then
+    if isRunning then
         local elapsed = math.floor(tick() - startTime)
         local hours = math.floor(elapsed / 3600)
         local minutes = math.floor((elapsed % 3600) / 60)
@@ -517,33 +585,54 @@ RunService.RenderStepped:Connect(function()
                 return false, currentMasA, equippedTool.Name
             end
             
-            local shouldKick = false
-            local reason = ""
-            
-            if targetMoney and targetMoney > 0 and beli >= targetMoney then
-                shouldKick = true
-                reason = "บรรลุเป้าหมายเงิน: " .. targetMoney
-            elseif targetFrag and targetFrag > 0 and fragments >= targetFrag then
-                shouldKick = true
-                reason = "บรรลุเป้าหมาย Fragment: " .. targetFrag
-            elseif targetMasteryX and targetMasteryX > 0 then
-                local isReady, currentA, weaponName = checkEquippedMastery(targetMasteryX)
-                if isReady then
-                    shouldKick = true
-                    reason = "อาวุธ [" .. weaponName .. "] ถึง Mastery: " .. targetMasteryX
+            -- 1. เช็คเป้าหมายเงิน
+            if targetMoney and targetMoney > 0 and beli >= targetMoney and not notifiedMoney then
+                notifiedMoney = true
+                local reason = "บรรลุเป้าหมายเงิน: " .. targetMoney
+                if MoneyKickToggle.GetValue() then
+                    -- เปิดสวิตช์: ส่ง LINE แล้วเตะออกเกม
+                    StatusLabel.Text = "สถานะ: สำเร็จเป้าหมายเงิน (กำลังเตะ...)"
+                    StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
+                    sendLineBotMessage(getReportMessage("🎉 บรรลุเป้าหมาย! (" .. reason .. ")", elapsed, ""))
+                    task.wait(1.5)
+                    LocalPlayer:Kick("\n[Blox Fruits UI] ทำภารกิจสำเร็จ: " .. reason)
+                else
+                    -- ปิดสวิตช์: ส่ง LINE แจ้งเตือนเฉยๆ ไม่เตะ
+                    sendLineBotMessage(getReportMessage("🔔 แจ้งเตือน: " .. reason, elapsed, ""))
                 end
             end
-
-            if shouldKick then
-                hasCompleted = true
-                StatusLabel.Text = "สถานะ: สำเร็จเป้าหมาย (กำลังส่ง LINE...)"
-                StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
-                
-                sendLineBotMessage(getReportMessage("🎉 บรรลุเป้าหมาย! (" .. reason .. ")", elapsed, ""))
-                
-                task.wait(1.8)
-                
-                LocalPlayer:Kick("\n[Blox Fruits UI] ทำภารกิจสำเร็จ: " .. reason)
+            
+            -- 2. เช็คเป้าหมาย Fragment
+            if targetFrag and targetFrag > 0 and fragments >= targetFrag and not notifiedFrag then
+                notifiedFrag = true
+                local reason = "บรรลุเป้าหมาย Fragment: " .. targetFrag
+                if FragKickToggle.GetValue() then
+                    StatusLabel.Text = "สถานะ: สำเร็จเป้าหมาย Fragment (กำลังเตะ...)"
+                    StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
+                    sendLineBotMessage(getReportMessage("🎉 บรรลุเป้าหมาย! (" .. reason .. ")", elapsed, ""))
+                    task.wait(1.5)
+                    LocalPlayer:Kick("\n[Blox Fruits UI] ทำภารกิจสำเร็จ: " .. reason)
+                else
+                    sendLineBotMessage(getReportMessage("🔔 แจ้งเตือน: " .. reason, elapsed, ""))
+                end
+            end
+            
+            -- 3. เช็คเป้าหมาย Mastery อาวุธ
+            if targetMasteryX and targetMasteryX > 0 and not notifiedMastery then
+                local isReady, currentA, weaponName = checkEquippedMastery(targetMasteryX)
+                if isReady then
+                    notifiedMastery = true
+                    local reason = "อาวุธ [" .. weaponName .. "] ถึง Mastery: " .. targetMasteryX
+                    if MasteryKickToggle.GetValue() then
+                        StatusLabel.Text = "สถานะ: สำเร็จเป้าหมาย Mastery (กำลังเตะ...)"
+                        StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
+                        sendLineBotMessage(getReportMessage("🎉 บรรลุเป้าหมาย! (" .. reason .. ")", elapsed, ""))
+                        task.wait(1.5)
+                        LocalPlayer:Kick("\n[Blox Fruits UI] ทำภารกิจสำเร็จ: " .. reason)
+                    else
+                        sendLineBotMessage(getReportMessage("🔔 แจ้งเตือน: " .. reason, elapsed, ""))
+                    end
+                end
             end
         end
     end
