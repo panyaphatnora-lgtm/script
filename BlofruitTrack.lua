@@ -111,7 +111,7 @@ ContentContainer.Parent = MainFrame
 ContentContainer.BackgroundTransparency = 1
 ContentContainer.Position = UDim2.new(0, 15, 0, 45)
 ContentContainer.Size = UDim2.new(1, -30, 1, -55)
-ContentContainer.CanvasSize = UDim2.new(0, 0, 0, 950)
+ContentContainer.CanvasSize = UDim2.new(0, 0, 0, 1050)
 ContentContainer.ScrollBarThickness = 4
 
 local UIListLayout = Instance.new("UIListLayout")
@@ -157,7 +157,7 @@ local function createTextBox(name, placeholder, defaultValue)
     return Box
 end
 
--- ฟังก์ชันสร้าง Toggle Switch สำหรับเปิด-ปิดโหมดเตะ
+-- ฟังก์ชันสร้าง Toggle Switch
 local function createToggle(name, defaultState)
     local Frame = Instance.new("Frame")
     Frame.Parent = ContentContainer
@@ -207,7 +207,6 @@ local function createToggle(name, defaultState)
         updateState()
     end)
 
-    -- ฟังก์ชันดึงค่าสถานะปัจจุบันของสวิตช์
     return {
         GetValue = function()
             return state
@@ -222,12 +221,14 @@ local MoneyKickToggle = createToggle("⚡ ตั้งค่า: เปิด=�
 local FragmentBox = createTextBox("เป้าหมาย Fragment [ปล่อยว่างได้ถ้าไม่ตั้ง]", "เช่น 300000 (ปล่อยว่างได้)", "")
 local FragKickToggle = createToggle("⚡ ตั้งค่า: เปิด=เตะ / ปิด=แจ้งเตือน (เมื่อถึงเป้าหมาย Fragment)", true)
 
-local WeaponSlotBox = createTextBox("เลือก Slot อาวุธที่ต้องการใช้งาน (เช่น 1, 2, 3)", "ใส่หมายเลข Slot อาวุธ...", "1")
+local WeaponSlotBox = createTextBox("เลือก Slot อาวุธที่ต้องการใช้งาน (เช่น 1, 2, 3, 4)", "ใส่หมายเลข Slot อาวุธ...", "")
 local MasteryBox = createTextBox("เป้าหมาย Mastery อาวุธ (X) [ปล่อยว่างได้]", "เช่น 600 (ปล่อยว่างได้)", "")
 local MasteryKickToggle = createToggle("⚡ ตั้งค่า: เปิด=เตะ / ปิด=แจ้งเตือน (เมื่ออาวุธถึง Mastery)", true)
 
 local ChannelTokenBox = createTextBox("Line Channel Access Token", "ใส่ Access Token...", "EfJMrAMgy2aPCimKynOUNPplYc70n5JgpMcdNDLvR2v5dC8ChP6LYJIY/IyRIjnOwyfjQ/OHuYRP0r4kVL4IB6cMsuGexCnTjg7yRfMInWUdT2qipNv1k45AfUEwg6zsvTtL5KZNNP+FgHleR8/ILwdB04t89/1O/w1cDnyilFU=")
 local UserIdBox = createTextBox("Line User ID (ขึ้นต้นด้วย U...)", "ใส่ User ID ของคุณ...", "U1c12b681682342ded09e14485acc3fe1")
+
+local ServerUrlBox = createTextBox("Cloud Server URL (สำหรับ LINE Bot คำสั่ง เลือกรหัส / ทุกรหัส)", "ใส่ URL Backend Server ของคุณ...", "https://your-backend-server.com/api/update-status")
 
 -- สถานะและตัวจับเวลา
 local StatusLabel = Instance.new("TextLabel")
@@ -293,83 +294,123 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- ฟังก์ชันตรวจสอบ Mastery และดึงอาวุธตาม Slot ที่กำหนด
+-- ฟังก์ชันดึงข้อมูล Mastery และแสดงเฉพาะประเภท (Melee, Fruits, Gun, Sword, Rod)
 local function getCurrentWeaponMastery()
     local character = LocalPlayer.Character
-    if not character then return "ไม่มีอาวุธ (0)" end
-    
-    local slotNum = tonumber(WeaponSlotBox.Text)
+    local slotNum = tonumber(WeaponSlotBox.Text) or 1
     local equippedTool = nil
+    local toolType = "Sword"
+    local weaponName = "Unknown"
+    local currentMas = 0
     
-    if slotNum then
-        local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-        if backpack then
-            local tools = {}
-            for _, t in ipairs(backpack:GetChildren()) do
-                if t:IsA("Tool") then
-                    table.insert(tools, t)
-                end
-            end
-            if tools[slotNum] then
-                equippedTool = tools[slotNum]
-            end
+    local tools = {}
+    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+    
+    if backpack then
+        for _, t in ipairs(backpack:GetChildren()) do
+            if t:IsA("Tool") then table.insert(tools, t) end
+        end
+    end
+    if character then
+        for _, t in ipairs(character:GetChildren()) do
+            if t:IsA("Tool") then table.insert(tools, t) end
         end
     end
     
-    if not equippedTool then
+    if tools[slotNum] then
+        equippedTool = tools[slotNum]
+    elseif character and character:FindFirstChildOfClass("Tool") then
         equippedTool = character:FindFirstChildOfClass("Tool")
     end
     
-    if not equippedTool then return "ไม่มีอาวุธ (0)" end
+    if equippedTool then
+        weaponName = equippedTool.Name
+        local lowerName = string.lower(weaponName)
+        
+        local meleeKeywords = {"breath", "superhuman", "godhuman", "step", "karate", "claw", "art", "combat", "fist", "kung fu", "electric", "sharkman", "death", "sanguine"}
+        local fruitKeywords = {"fruit", "dragon", "leopard", "dough", "venom", "shadow", "buddha", "kitsune", "portal", "blizzard", "magma", "flame", "ice", "light", "dark", "quake", "string", "rumble", "paw", "gravity", "control", "spirit", "sound", "pain", "creation", "gas", "rocket", "spin", "chop", "spring", "bomb", "smoke", "spike", "falcon", "fire", "love", "rubber", "barrier", "ghost", "diamond"}
+        local gunKeywords = {"gun", "rifle", "musket", "pistol", "bazooka", "soul guitar", "kabucha", "reflector", "cannon"}
+        local rodKeywords = {"rod", "pole", "fishing"}
+        
+        local isMelee = false
+        for _, kw in ipairs(meleeKeywords) do
+            if string.find(lowerName, kw) then isMelee = true break end
+        end
+        
+        local isFruit = false
+        for _, kw in ipairs(fruitKeywords) do
+            if string.find(lowerName, kw) then isFruit = true break end
+        end
+        
+        local isGun = false
+        for _, kw in ipairs(gunKeywords) do
+            if string.find(lowerName, kw) then isGun = true break end
+        end
+        
+        local isRod = false
+        for _, kw in ipairs(rodKeywords) do
+            if string.find(lowerName, kw) then isRod = true break end
+        end
+        
+        if isMelee then
+            toolType = "Melee"
+        elseif isFruit then
+            toolType = "Fruits"
+        elseif isGun then
+            toolType = "Gun"
+        elseif isRod then
+            toolType = "Rod"
+        else
+            toolType = "Sword"
+        end
+        
+        -- ดึงค่า Mastery จากตัวไอเทม
+        if equippedTool:FindFirstChild("Level") then
+            currentMas = tonumber(equippedTool.Level.Value) or 0
+        elseif equippedTool:FindFirstChild("Mastery") then
+            currentMas = tonumber(equippedTool.Mastery.Value) or 0
+        elseif equippedTool:FindFirstChild("LevelVal") then
+            currentMas = tonumber(equippedTool.LevelVal.Value) or 0
+        end
+    end
     
-    local currentMas = 0
-    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    
-    if playerGui then
-        for _, descendant in ipairs(playerGui:GetDescendants()) do
-            if descendant:IsA("TextLabel") then
-                local text = descendant.Text
-                if string.find(text, "Mastery") or string.find(text, "Mas") then
-                    local num = tonumber(string.match(text, "%d+"))
-                    if num and num > 9 and num <= 600 then
-                        currentMas = num
-                        break
+    -- สำรอง: หาจาก PlayerGui ถ้าหาจากตัวไอเทมไม่เจอ
+    if currentMas == 0 then
+        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if playerGui then
+            for _, descendant in ipairs(playerGui:GetDescendants()) do
+                if descendant:IsA("TextLabel") then
+                    local text = descendant.Text or ""
+                    if string.find(text, "ความชำนาญ") or string.find(text, "Mastery") then
+                        local num = tonumber(string.match(text, "%d+"))
+                        if num and num > 0 and num <= 600 then
+                            currentMas = num
+                        end
                     end
                 end
             end
         end
     end
     
-    if currentMas == 0 then
-        if equippedTool:FindFirstChild("Level") then
-            currentMas = equippedTool.Level.Value
-        elseif equippedTool:FindFirstChild("Mastery") then
-            currentMas = equippedTool.Mastery.Value
-        end
-    end
-    
-    return string.format("%s [Slot: %s] (%d)", equippedTool.Name, tostring(slotNum or "-"), currentMas)
+    return string.format("%s (Mas: %d)", toolType, currentMas), currentMas, toolType
 end
 
--- ฟังก์ชันตรวจสอบเป้าหมาย
+-- ฟังก์ชันตรวจสอบเป้าหมายทั้งหมด
 local function getFarmingTargetDescription()
     local targets = {}
     local mTarget = tonumber(MoneyBox.Text)
     local fTarget = tonumber(FragmentBox.Text)
     local masTarget = tonumber(MasteryBox.Text)
-    local slotTarget = WeaponSlotBox.Text
     
     if mTarget and mTarget > 0 then
-        table.insert(targets, "ฟาร์มเงิน Beli ให้ถึง " .. mTarget)
+        table.insert(targets, "เงิน Beli: " .. mTarget)
     end
     if fTarget and fTarget > 0 then
-        table.insert(targets, "ฟาร์ม Fragment ให้ถึง " .. fTarget)
-    end
-    if slotTarget ~= "" then
-        table.insert(targets, "ใช้ Slot อาวุธที่ " .. slotTarget)
+        table.insert(targets, "Fragment: " .. fTarget)
     end
     if masTarget and masTarget > 0 then
-        table.insert(targets, "ฟาร์ม Mastery ให้ถึง " .. masTarget)
+        local _, _, typeName = getCurrentWeaponMastery()
+        table.insert(targets, "Mastery ประเภท [" .. typeName .. "] ให้ถึง " .. masTarget)
     end
     
     if #targets == 0 then
@@ -380,7 +421,7 @@ local function getFarmingTargetDescription()
 end
 
 -- ฟังก์ชันจัดรูปแบบข้อความรายงานผล
-local function getReportMessage(statusTitle, elapsedSeconds, startTimeFormatted)
+local function getReportMessage(statusTitle, elapsedSeconds, startTimeFormatted, detailsList)
     local realName = LocalPlayer.Name
     local nickName = LocalPlayer.DisplayName
     local beli = 0
@@ -396,20 +437,23 @@ local function getReportMessage(statusTitle, elapsedSeconds, startTimeFormatted)
     local minutes = math.floor((elapsedSeconds % 3600) / 60)
     local seconds = elapsedSeconds % 60
     local timeStr = string.format("%02d:%02d:%02d", hours, minutes, seconds)
+    local completedTimeStr = os.date("%H:%M:%S")
     
-    local masInfo = getCurrentWeaponMastery()
+    local masInfoStr, _, _ = getCurrentWeaponMastery()
     local farmingGoal = getFarmingTargetDescription()
     
     if statusTitle == "เริ่มฟาร์ม" then
         return string.format(
-            "🚀 กำลังเริ่มฟาร์ม...\nUserid: %s\nDisplay Name: %s\n🎯 กำลังฟาร์ม: %s\n⏰ เวลาเริ่ม: %s",
+            "🚀 กำลังเริ่มฟาร์ม...\nUserid: %s\nDisplay Name: %s\n🎯 เป้าหมายทั้งหมด: %s\n⏰ เวลาเริ่ม: %s",
             realName, nickName, farmingGoal, startTimeFormatted
         )
     end
     
+    local detailText = detailsList and ("\n📝 รายการที่สำเร็จ:\n- " .. table.concat(detailsList, "\n- ")) or ""
+    
     return string.format(
-        "[%s]\nUserid: %s\nDisplay Name: %s\nBeli: %d\nFragment: %d\nMas: %s\nTime: %s",
-        statusTitle, realName, nickName, beli, fragments, masInfo, timeStr
+        "[%s]\nUser_name: %s\nDisplayName: %s\nBeli: %d\nFragment: %d\nMas: %s%s\n⏳ เวลาที่ใช้ไป: %s\n🏁 เสร็จตอนเวลา: %s",
+        statusTitle, realName, nickName, beli, fragments, masInfoStr, detailText, timeStr, completedTimeStr
     )
 end
 
@@ -440,7 +484,6 @@ local function sendLineBotMessage(message)
     }
     
     local req = (getgenv and getgenv().request) or request or (http and http.request)
-    
     if req then
         local success = pcall(function()
             req({
@@ -455,15 +498,57 @@ local function sendLineBotMessage(message)
     return false
 end
 
--- ตัวแปรการทำงาน
-local isRunning = false
-local startTime = 0
--- ตัวแปรเช็คว่าส่งแจ้งเตือนไปแล้วหรือยัง (ป้องกันไม่ให้ส่งรัวๆ ทุกเฟรม)
-local notifiedMoney = false
-local notifiedFrag = false
-local notifiedMastery = false
+-- ฟังก์ชันส่งข้อมูลสถานะปัจจุบันขึ้น Cloud Server
+local function syncStatusToCloud()
+    local serverUrl = ServerUrlBox.Text
+    if serverUrl == "" then return end
 
--- ปุ่มเปิด/ปิด Animation
+    local realName = LocalPlayer.Name
+    local nickName = LocalPlayer.DisplayName
+    local beli = 0
+    local fragments = 0
+    
+    local data = LocalPlayer:FindFirstChild("Data")
+    if data then
+        beli = data:FindFirstChild("Beli") and data.Beli.Value or 0
+        fragments = data:FindFirstChild("Fragments") and data.Fragments.Value or 0
+    end
+    
+    local masInfoStr, _, _ = getCurrentWeaponMastery()
+    
+    local payload = {
+        ["user_name"] = realName,
+        ["display_name"] = nickName,
+        ["beli"] = beli,
+        ["fragment"] = fragments,
+        ["mas"] = masInfoStr,
+        ["is_running"] = isRunning
+    }
+    
+    local body = HttpService:JSONEncode(payload)
+    local headers = {
+        ["Content-Type"] = "application/json"
+    }
+    
+    local req = (getgenv and getgenv().request) or request or (http and http.request)
+    if req then
+        pcall(function()
+            req({
+                Url = serverUrl,
+                Method = "POST",
+                Headers = headers,
+                Body = body
+            })
+        end)
+    end
+end
+
+-- ตัวแปรการทำงาน
+isRunning = false
+local startTime = 0
+local alreadyNotifiedAll = false
+
+-- ปุ่มเปิด/ปิด Animation ย่อหน้าต่าง
 MinimizeBtn.MouseButton1Click:Connect(function()
     local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
     local tween = TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1})
@@ -486,12 +571,10 @@ CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
--- ปุ่ม Start / Stop
+-- ปุ่ม Start / Stop แบบกดเอง
 StartBtn.MouseButton1Click:Connect(function()
     isRunning = not isRunning
-    notifiedMoney = false
-    notifiedFrag = false
-    notifiedMastery = false
+    alreadyNotifiedAll = false
     
     if isRunning then
         StartBtn.Text = "หยุดทำงาน (STOP)"
@@ -501,20 +584,30 @@ StartBtn.MouseButton1Click:Connect(function()
         startTime = tick()
         
         local startTimeFormatted = os.date("%H:%M:%S")
-        sendLineBotMessage(getReportMessage("เริ่มฟาร์ม", 0, startTimeFormatted))
+        sendLineBotMessage(getReportMessage("เริ่มฟาร์ม", 0, startTimeFormatted, nil))
     else
         StartBtn.Text = "เริ่มทำงาน (START)"
         StartBtn.BackgroundColor3 = Color3.fromRGB(80, 200, 120)
         StatusLabel.Text = "สถานะ: หยุดทำงาน"
         StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
         local elapsed = math.floor(tick() - startTime)
-        sendLineBotMessage(getReportMessage("หยุดสคริปต์", elapsed, ""))
+        sendLineBotMessage(getReportMessage("หยุดสคริปต์", elapsed, "", nil))
     end
 end)
 
--- ลูปเช็คค่าสถานะและเงื่อนไขเป้าหมายแยกตามสวิตช์
+-- ลูปซิงค์ข้อมูลสถานะขึ้น Cloud ทุกๆ 10 วินาที
+task.spawn(function()
+    while true do
+        task.wait(10)
+        if isRunning then
+            syncStatusToCloud()
+        end
+    end
+end)
+
+-- ลูปตรวจสอบเงื่อนไขเป้าหมายทั้งหมดรวมกัน
 RunService.RenderStepped:Connect(function()
-    if isRunning then
+    if isRunning and not alreadyNotifiedAll then
         local elapsed = math.floor(tick() - startTime)
         local hours = math.floor(elapsed / 3600)
         local minutes = math.floor((elapsed % 3600) / 60)
@@ -530,107 +623,81 @@ RunService.RenderStepped:Connect(function()
             local targetFrag = (FragmentBox.Text ~= "" and tonumber(FragmentBox.Text)) or nil
             local targetMasteryX = (MasteryBox.Text ~= "" and tonumber(MasteryBox.Text)) or nil
             
-            local function checkEquippedMastery(targetMasX)
-                local character = LocalPlayer.Character
-                if not character then return false, 0, "ไม่มี" end
-                
-                local slotNum = tonumber(WeaponSlotBox.Text)
-                local equippedTool = nil
-                if slotNum then
-                    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-                    if backpack then
-                        local tools = {}
-                        for _, t in ipairs(backpack:GetChildren()) do
-                            if t:IsA("Tool") then
-                                table.insert(tools, t)
-                            end
-                        end
-                        if tools[slotNum] then
-                            equippedTool = tools[slotNum]
-                        end
-                    end
-                end
-                if not equippedTool then
-                    equippedTool = character:FindFirstChildOfClass("Tool")
-                end
-                
-                if not equippedTool then return false, 0, "ไม่มี" end
-                
-                local currentMasA = 0
-                local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-                if playerGui then
-                    for _, descendant in ipairs(playerGui:GetDescendants()) do
-                        if descendant:IsA("TextLabel") then
-                            local text = descendant.Text
-                            if string.find(text, "Mastery") or string.find(text, "Mas") then
-                                local num = tonumber(string.match(text, "%d+"))
-                                if num and num > 9 and num <= 600 then
-                                    currentMasA = num
-                                    break
-                                end
-                            end
-                        end
-                    end
-                end
-                if currentMasA == 0 then
-                    if equippedTool:FindFirstChild("Level") then
-                        currentMasA = equippedTool.Level.Value
-                    elseif equippedTool:FindFirstChild("Mastery") then
-                        currentMasA = equippedTool.Mastery.Value
-                    end
-                end
-                if currentMasA >= targetMasX then
-                    return true, currentMasA, equippedTool.Name
-                end
-                return false, currentMasA, equippedTool.Name
-            end
-            
-            -- 1. เช็คเป้าหมายเงิน
-            if targetMoney and targetMoney > 0 and beli >= targetMoney and not notifiedMoney then
-                notifiedMoney = true
-                local reason = "บรรลุเป้าหมายเงิน: " .. targetMoney
-                if MoneyKickToggle.GetValue() then
-                    -- เปิดสวิตช์: ส่ง LINE แล้วเตะออกเกม
-                    StatusLabel.Text = "สถานะ: สำเร็จเป้าหมายเงิน (กำลังเตะ...)"
-                    StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
-                    sendLineBotMessage(getReportMessage("🎉 บรรลุเป้าหมาย! (" .. reason .. ")", elapsed, ""))
-                    task.wait(1.5)
-                    LocalPlayer:Kick("\n[Blox Fruits UI] ทำภารกิจสำเร็จ: " .. reason)
+            local isMoneyDone = true
+            local moneyDesc = ""
+            if targetMoney and targetMoney > 0 then
+                if beli >= targetMoney then
+                    isMoneyDone = true
+                    moneyDesc = "บรรลุเป้าหมายเงิน: " .. targetMoney
                 else
-                    -- ปิดสวิตช์: ส่ง LINE แจ้งเตือนเฉยๆ ไม่เตะ
-                    sendLineBotMessage(getReportMessage("🔔 แจ้งเตือน: " .. reason, elapsed, ""))
+                    isMoneyDone = false
                 end
             end
             
-            -- 2. เช็คเป้าหมาย Fragment
-            if targetFrag and targetFrag > 0 and fragments >= targetFrag and not notifiedFrag then
-                notifiedFrag = true
-                local reason = "บรรลุเป้าหมาย Fragment: " .. targetFrag
-                if FragKickToggle.GetValue() then
-                    StatusLabel.Text = "สถานะ: สำเร็จเป้าหมาย Fragment (กำลังเตะ...)"
-                    StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
-                    sendLineBotMessage(getReportMessage("🎉 บรรลุเป้าหมาย! (" .. reason .. ")", elapsed, ""))
-                    task.wait(1.5)
-                    LocalPlayer:Kick("\n[Blox Fruits UI] ทำภารกิจสำเร็จ: " .. reason)
+            local isFragDone = true
+            local fragDesc = ""
+            if targetFrag and targetFrag > 0 then
+                if fragments >= targetFrag then
+                    isFragDone = true
+                    fragDesc = "บรรลุเป้าหมาย Fragment: " .. targetFrag
                 else
-                    sendLineBotMessage(getReportMessage("🔔 แจ้งเตือน: " .. reason, elapsed, ""))
+                    isFragDone = false
                 end
             end
             
-            -- 3. เช็คเป้าหมาย Mastery อาวุธ
-            if targetMasteryX and targetMasteryX > 0 and not notifiedMastery then
-                local isReady, currentA, weaponName = checkEquippedMastery(targetMasteryX)
-                if isReady then
-                    notifiedMastery = true
-                    local reason = "อาวุธ [" .. weaponName .. "] ถึง Mastery: " .. targetMasteryX
-                    if MasteryKickToggle.GetValue() then
-                        StatusLabel.Text = "สถานะ: สำเร็จเป้าหมาย Mastery (กำลังเตะ...)"
+            local isMasDone = true
+            local masDesc = ""
+            if targetMasteryX and targetMasteryX > 0 then
+                _, currentMasVal, typeName = getCurrentWeaponMastery()
+                if currentMasVal >= targetMasteryX then
+                    isMasDone = true
+                    masDesc = "ประเภท [" .. typeName .. "] ถึง Mastery: " .. targetMasteryX
+                else
+                    isMasDone = false
+                end
+            end
+            
+            local activeTargetsCount = 0
+            local achievedDetails = {}
+            
+            if targetMoney and targetMoney > 0 then
+                activeTargetsCount = activeTargetsCount + 1
+                if isMoneyDone then table.insert(achievedDetails, moneyDesc) end
+            end
+            
+            if targetFrag and targetFrag > 0 then
+                activeTargetsCount = activeTargetsCount + 1
+                if isFragDone then table.insert(achievedDetails, fragDesc) end
+            end
+            
+            if targetMasteryX and targetMasteryX > 0 then
+                activeTargetsCount = activeTargetsCount + 1
+                if isMasDone then table.insert(achievedDetails, masDesc) end
+            end
+            
+            if activeTargetsCount > 0 then
+                local allCompleted = true
+                if targetMoney and targetMoney > 0 and not isMoneyDone then allCompleted = false end
+                if targetFrag and targetFrag > 0 and not isFragDone then allCompleted = false end
+                if targetMasteryX and targetMasteryX > 0 and not isMasDone then allCompleted = false end
+                
+                if allCompleted then
+                    alreadyNotifiedAll = true
+                    local shouldKick = MoneyKickToggle.GetValue() or FragKickToggle.GetValue() or MasteryKickToggle.GetValue()
+                    
+                    if shouldKick then
+                        StatusLabel.Text = "สถานะ: บรรลุเป้าหมายครบทั้งหมด (กำลังเตะ...)"
                         StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
-                        sendLineBotMessage(getReportMessage("🎉 บรรลุเป้าหมาย! (" .. reason .. ")", elapsed, ""))
+                        sendLineBotMessage(getReportMessage("🎉 บรรลุเป้าหมายครบทุกข้อแล้ว!", elapsed, "", achievedDetails))
                         task.wait(1.5)
-                        LocalPlayer:Kick("\n[Blox Fruits UI] ทำภารกิจสำเร็จ: " .. reason)
+                        LocalPlayer:Kick("\n[Blox Fruits UI] ทำภารกิจสำเร็จครบทุกเป้าหมายที่ตั้งไว้!")
                     else
-                        sendLineBotMessage(getReportMessage("🔔 แจ้งเตือน: " .. reason, elapsed, ""))
+                        StatusLabel.Text = "สถานะ: บรรลุเป้าหมายครบทั้งหมด (แจ้งเตือนแล้ว)"
+                        StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
+                        sendLineBotMessage(getReportMessage("🔔 แจ้งเตือน: บรรลุเป้าหมายครบทุกข้อแล้ว", elapsed, "", achievedDetails))
+                        isRunning = false
+                        StartBtn.Text = "เริ่มทำงาน (START)"
+                        StartBtn.BackgroundColor3 = Color3.fromRGB(80, 200, 120)
                     end
                 end
             end
