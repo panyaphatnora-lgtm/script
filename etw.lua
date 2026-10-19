@@ -10,7 +10,7 @@ local VirtualUser = game:GetService("VirtualUser")
 _G.AutoGrabEat = true
 _G.AutoSell = true
 _G.EatSpeed = 10
-_G.SellSize = 4219500
+_G.SellSize = 4425300
 
 -- ===== สร้างหน้าต่าง GUI หลัก =====
 local screenGui = Instance.new("ScreenGui", game.CoreGui)
